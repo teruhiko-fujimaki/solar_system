@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>月の軌道モデル</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            text-align: center;
+            background-color: #fafafa;
+            margin: 0;
+            padding: 20px;
+        }
+        canvas {
+            background-color: white;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            max-width: 100%;
+            height: auto;
+        }
+        .controls {
+            margin-bottom: 15px;
+        }
+        button {
+            padding: 8px 16px;
+            font-size: 16px;
+            cursor: pointer;
+            border: none;
+            border-radius: 4px;
+            background-color: #4CAF50;
+            color: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            margin: 0 5px; /* ボタン同士の隙間を少しあける */
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+    </style>
+</head>
+<body>
+
+    <h2>月の軌道モデル（デフォルメ版）</h2>
+    <div class="controls">
+        <button id="toggleBtn">一時停止 / 再生</button>
+        <button id="togglePathBtn">軌道の表示 / 非表示</button>
+    </div>
+    
+    <canvas id="orbitCanvas" width="700" height="600"></canvas>
+
+    <script>
+        const canvas = document.getElementById('orbitCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // アニメーションの制御変数
+        let isPlaying = true;
+        let showMoonPath = true; // 軌道を表示するかどうかのフラグ
+        let time = 0;
+        const speed = 0.02; // アニメーションの進む速さ
+
+        // 天体のサイズと軌道半径
+        const cx = canvas.width / 2;
+        const cy = canvas.height / 2;
+        const sunRadius = 10;
+        const earthRadius = 4;
+        const moonRadius = 2;
+        const earthOrbitRadius = 260; // 太陽から地球までの距離
+        const moonOrbitRadius = 12;   // 地球から月までの距離
+
+        // デフォルメされた周期設定
+        const earthPeriod = 60; // 地球が太陽を1周する時間
+        const moonPeriod = 1;   // 月が地球を1周する時間
+
+        // 事前に月の軌跡（波打つ線）を計算しておく
+        const moonPath = [];
+        const resolution = 1000;
+        for (let i = 0; i <= resolution; i++) {
+            let t = (i / resolution) * earthPeriod;
+            let eAngle = -(t / earthPeriod) * Math.PI * 2;
+            let mAngle = -(t / moonPeriod) * Math.PI * 2;
+
+            let ex = cx + Math.cos(eAngle) * earthOrbitRadius;
+            let ey = cy + Math.sin(eAngle) * earthOrbitRadius;
+            let mx = ex + Math.cos(mAngle) * moonOrbitRadius;
+            let my = ey + Math.sin(mAngle) * moonOrbitRadius;
+
+            moonPath.push({x: mx, y: my});
+        }
+
+        // 描画関数
+        function draw() {
+            // 画面をクリア
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 1. 月の軌跡（グレーの波線）を描画
+            if (showMoonPath) {
+                ctx.beginPath();
+                ctx.moveTo(moonPath[0].x, moonPath[0].y);
+                for (let i = 1; i < moonPath.length; i++) {
+                    ctx.lineTo(moonPath[i].x, moonPath[i].y);
+                }
+                ctx.strokeStyle = '#cccccc';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
+
+            // 2. 地球の軌道（薄い点線）を描画
+            ctx.beginPath();
+            ctx.arc(cx, cy, earthOrbitRadius, 0, Math.PI * 2);
+            ctx.strokeStyle = '#dddddd';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([5, 5]);
+            ctx.stroke();
+            ctx.setLineDash([]); // 点線をリセット
+
+            // 3. 太陽の描画
+            ctx.beginPath();
+            ctx.arc(cx, cy, sunRadius, 0, Math.PI * 2);
+            ctx.fillStyle = '#ff9800'; // オレンジ
+            ctx.fill();
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+            ctx.fillStyle = '#ff6600';
+            ctx.font = "14px sans-serif";
+            // 太陽のサイズ変更に合わせて文字の位置を微調整
+            ctx.fillText("太陽", cx - 14, cy - 38); 
+
+            // 現在の時間に基づく角度の計算
+            let currentEarthAngle = -(time / earthPeriod) * Math.PI * 2;
+            let currentMoonAngle = -(time / moonPeriod) * Math.PI * 2;
+
+            // 地球の現在座標
+            let earthX = cx + Math.cos(currentEarthAngle) * earthOrbitRadius;
+            let earthY = cy + Math.sin(currentEarthAngle) * earthOrbitRadius;
+
+            // 月の現在座標
+            let moonX = earthX + Math.cos(currentMoonAngle) * moonOrbitRadius;
+            let moonY = earthY + Math.sin(currentMoonAngle) * moonOrbitRadius;
+
+            // 4. 地球の描画
+            ctx.beginPath();
+            ctx.arc(earthX, earthY, earthRadius, 0, Math.PI * 2);
+            ctx.fillStyle = '#00bcd4'; // シアン
+            ctx.fill();
+            ctx.stroke();
+            ctx.fillStyle = '#009688';
+            ctx.fillText("地球", earthX + 12, earthY - 12);
+
+            // 5. 月の描画
+            ctx.beginPath();
+            ctx.arc(moonX, moonY, moonRadius, 0, Math.PI * 2);
+            ctx.fillStyle = '#9e9e9e'; // グレー
+            ctx.fill();
+            ctx.stroke();
+            ctx.fillStyle = '#757575';
+            ctx.fillText("月", moonX + 8, moonY + 16);
+        }
+
+        // アニメーションループ
+        function animate() {
+            if (isPlaying) {
+                time += speed;
+                if (time > earthPeriod) {
+                    time -= earthPeriod;
+                }
+            }
+            draw();
+            requestAnimationFrame(animate);
+        }
+
+        // ボタンのイベントリスナー
+        document.getElementById('toggleBtn').addEventListener('click', () => {
+            isPlaying = !isPlaying;
+        });
+
+        document.getElementById('togglePathBtn').addEventListener('click', () => {
+            showMoonPath = !showMoonPath; // trueとfalseを反転させる
+        });
+
+        // アニメーション開始
+        animate();
+    </script>
+</body>
+</html>
